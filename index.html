@@ -450,7 +450,7 @@
 
         function getMaterial(key, options = {}) {
             const texInfo = textures[key];
-            const matClass = isMobile ? THREE.MeshLambertMaterial : THREE.MeshStandardMaterial;
+            const matClass = THREE.MeshStandardMaterial; 
             const matParams = { roughness: 0.8, metalness: 0.1, ...options };
             
             if (texInfo && texInfo.type === 'texture') {
@@ -489,16 +489,14 @@
 
             renderer = new THREE.WebGLRenderer({ 
                 canvas: document.getElementById('gameCanvas'), 
-                antialias: !isMobile,
+                antialias: true,
                 powerPreference: "high-performance" 
             });
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(isMobile ? 1 : Math.min(window.devicePixelRatio, 1.5));
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
             
-            if (!isMobile) {
-                renderer.shadowMap.enabled = true;
-                renderer.shadowMap.type = THREE.BasicShadowMap;
-            }
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap; 
 
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
             pitchObject = new THREE.Object3D();
@@ -508,7 +506,7 @@
             yawObject.add(pitchObject);
             scene.add(yawObject);
 
-            flashlight = new THREE.SpotLight(0xcceeff, 1.2, 30, Math.PI/5, 0.7, 1);
+            flashlight = new THREE.SpotLight(0xcceeff, 1.2, 30, Math.PI/5, 1.0, 1);
             flashlight.position.set(0, 0, 0);
             flashlight.target.position.set(0, 0, -1);
             camera.add(flashlight);
@@ -541,22 +539,26 @@
             const width = mazeMap[0].length * CELL_SIZE;
             const depth = mazeMap.length * CELL_SIZE;
 
-            const floorGeo = new THREE.PlaneGeometry(width, depth);
+            const wSeg = Math.floor(width / CELL_SIZE) * 2;
+            const dSeg = Math.floor(depth / CELL_SIZE) * 2;
+
+            const floorGeo = new THREE.PlaneGeometry(width, depth, wSeg, dSeg);
             const floorMat = getMaterial('floor');
             if(floorMat.map) floorMat.map.repeat.set(width / 3, depth / 3); 
             
             const floor = new THREE.Mesh(floorGeo, floorMat);
             floor.rotation.x = -Math.PI / 2;
-            floor.receiveShadow = !isMobile;
+            floor.receiveShadow = true; 
             floor.position.set(width/2 - CELL_SIZE/2, 0, depth/2 - CELL_SIZE/2);
             scene.add(floor);
 
-            const ceilGeo = new THREE.PlaneGeometry(width, depth);
+            const ceilGeo = new THREE.PlaneGeometry(width, depth, wSeg, dSeg);
             const ceilMat = getMaterial('ceiling');
             if(ceilMat.map) ceilMat.map.repeat.set(width / 3, depth / 3);
             
             const ceiling = new THREE.Mesh(ceilGeo, ceilMat);
             ceiling.rotation.x = Math.PI / 2;
+            ceiling.receiveShadow = true; 
             ceiling.position.set(width/2 - CELL_SIZE/2, WALL_HEIGHT, depth/2 - CELL_SIZE/2);
             scene.add(ceiling);
 
@@ -571,10 +573,10 @@
             const wallMat = getMaterial('wall');
             const wallInstancedMesh = new THREE.InstancedMesh(wallGeo, wallMat, wallCount);
             wallInstancedMesh.instanceMatrix.setUsage(THREE.StaticDrawUsage);
-            if(!isMobile) {
-                wallInstancedMesh.castShadow = true;
-                wallInstancedMesh.receiveShadow = true;
-            }
+            
+            wallInstancedMesh.castShadow = true;
+            wallInstancedMesh.receiveShadow = true;
+            
             scene.add(wallInstancedMesh);
 
             const dummyObject = new THREE.Object3D();
@@ -734,7 +736,6 @@
         }
 
         function initMonster() {
-            // ИСПРАВЛЕНИЕ ДЛЯ СТАРЫХ ТЕЛЕФОНОВ: убрали оператор `?.`
             let tex = textures['monster'] ? textures['monster'].val : null;
             let mat = tex ? new THREE.SpriteMaterial({ map: tex, color: 0xffffff }) : new THREE.SpriteMaterial({ color: 0xff0000 });
             
@@ -757,7 +758,6 @@
 
         function spawnAdditionalMonsters() {
             for (let k = 0; k < 2; k++) {
-                // ИСПРАВЛЕНИЕ ДЛЯ СТАРЫХ ТЕЛЕФОНОВ: убрали оператор `?.`
                 let tex = textures['monster'] ? textures['monster'].val : null;
                 let mat = tex ? new THREE.SpriteMaterial({ map: tex, color: 0xffffff }) : new THREE.SpriteMaterial({ color: 0xff0000 });
                 
@@ -804,7 +804,6 @@
 
                 initAudio();
                 
-                // ИСПРАВЛЕНИЕ ДЛЯ IOS: Разрешаем звуку играть после касания
                 if (audioCtx && audioCtx.state === 'suspended') {
                     audioCtx.resume();
                 }
@@ -865,7 +864,6 @@
             });
         }
         
-        // Вспомогательная функция для безопасного поиска касаний на старых устройствах
         function getTouchById(touches, id) {
             for (let i = 0; i < touches.length; i++) {
                 if (touches[i].identifier === id) return touches[i];
@@ -1149,7 +1147,6 @@
             }
 
             if (direction.lengthSq() > 0) {
-                // ИСПРАВЛЕНИЕ: исправлена опечатка isSSprint -> isSprinting
                 const speed = GameState.isSprinting ? RUN_SPEED : MOVE_SPEED;
                 direction.applyEuler(new THREE.Euler(0, yawObject.rotation.y, 0));
                 velocity.copy(direction).multiplyScalar(speed * delta);
@@ -1401,10 +1398,10 @@
 
             updatePlayerMovement(delta);
             updateMonster(delta);
+            
             renderer.render(scene, camera);
         }
 
-        // ИСПРАВЛЕНИЕ: Вызываем логику напрямую без привязки к `window.onload`, чтобы избежать зависаний на мобильных
         initLoadManager(); 
         animate();
     </script>
